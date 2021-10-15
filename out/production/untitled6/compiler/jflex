@@ -1,0 +1,185 @@
+//package Compiler;
+//salam
+//section 1
+package compiler;
+
+%%
+
+//section 2
+
+%public
+%class lexic //name of the java class
+%column // can retrieve current line using yycloumn()
+%line // can retrieve current line using yyline()
+%unicode //must thing
+%type String
+%state STRING
+%state ARRAY
+
+%state DEFINE
+ //state STRING declares a lexical state STRING that can be used in the lexical rules part of the specification
+%{
+  StringBuffer string = new StringBuffer();
+%}
+
+/* line 20 to 25 copied from ref manual https://github.com/jflex-de/jflex/blob/master/docs/md/example.md */
+
+//comments:
+TraditionalComment   = "/*" [^*] ~"*/" | "/*" "*"+ "/"
+Comment = {TraditionalComment} | {EndOfLineComment} | {DocumentationComment}
+// Comment can be the last line of the file, without line terminator.
+EndOfLineComment     = "//" {InputCharacter}* {LineTerminator}?
+DocumentationComment = "/**" {CommentContent} "*"+ "/"
+CommentContent       = ( [^*] | \*+ [^/*] )*
+
+//whitespase and new line
+
+LineTerminator = \r|\n|\r\n
+InputCharacter = [^\r\n]
+WhiteSpace     = {LineTerminator} | [ \t\f]
+
+//operators
+operator=[\-\+\*\/\%]
+
+//decimal
+DecIntegerLiteral = 0 | [1-9][0-9]*
+
+//alphabet
+alphabet = [a-zA-z]
+
+//id
+identifier = {alphabet} ({alphabet} |{DecIntegerLiteral} | [_] )*
+//array = {identifier}"[" {DecIntegerLiteral}"]"
+//string
+
+//"that had just walked in. Hey, he says, \"aren't you a string?\""
+
+//string = \"[^(\\n|\\r)]~\"
+//sreing_inner = \{string}\
+//stringINstring = "\" " "  "\" "
+//boolean
+Boolean = "true"|"false"
+//string = " \"" [^\n\r\"]*  "\" "
+//double
+
+dot = "."
+//se halat double darim mishod yeki nevesht intori rahat tare
+Double1 = {DecIntegerLiteral}+ {dot}
+Double2 = {dot} {DecIntegerLiteral}+
+Double3 = {DecIntegerLiteral}+ {dot} {DecIntegerLiteral}+
+DoubleNumber = ({ScientificNotation}|{Double1} | {Double2}  | {Double3})
+
+
+//punctuations from internet
+Punctuations = "<" | "<=" | ">" | ">=" | "=" | "==" | "!=" | "&&" | "||" | "!" | ";" | "," | "." | "[" | "]" | "(" | ")" | "{" | "}"
+
+//hex
+HEX = [a-fA-F]
+HEXNUM = ("OX" | "0x") ( {HEX} | {DecIntegerLiteral} )+
+
+//java reserved keywords
+
+/* downloaded from oracle
+package compiler;
+abstract continue for new switch
+assert*** default goto* package synchronized
+boolean do if private this
+break double implements protected throw
+byte else import public throws
+case enum**** instanceof return transient
+catch extends int short try
+char final interface static void
+class finally long strictfp** volatile
+const* float native super while
+*/
+
+Reserved = "__line__"|"__func__" | "string"|"bool"|"null"|"NewArray"|"Print"|"ReadInteger"|"ReadLine"|"abstract" | "continue" | "for" | "new" |"switch"| "assert***"| "default"| "goto*"| "package"| "synchronized" | "boolean" | "do" |"if" |"private"| "this"| "break" |"double" |"implements"| "protected"| "throw"| "byte" | "else" |"import"| "public"| "throws"| "case"| "enum****"| "instanceof"| "return"| "transient"| "catch" |"extends"| "int"| "short"| "try"| "char"| "final"| "interface" | "static" | "void" | "class"| "finally"| "long"| "strictfp**"| "volatile"| "const*"| "float"| "native" |"super" |"while"
+
+
+/* Scientific Notation */
+E = ("E"|"e")
+ScientificNotation1 = ({Double1}|{Double3}) {E} ("+" | "-") ({DecIntegerLiteral})+
+ScientificNotation2 = ({Double1}|{Double3}) {E} ({DecIntegerLiteral}) +
+ScientificNotation = {ScientificNotation2} | {ScientificNotation1}
+
+%%
+//section 3
+
+
+<YYINITIAL> {
+
+
+//comments
+{Comment}                                         {/* comment */}
+
+//defines
+"DEFINE"                                          {yybegin(DEFINE); }
+
+
+
+//punctuations
+{Punctuations}                                    {return yytext();}
+
+//keywords
+{Reserved}                                        {return yytext();}
+
+//boolean
+{Boolean}                                         {return ("T_BOOLEANLITERAL" + " " + yytext());}
+
+//hexnumber
+{HEXNUM}                                          {return ("T_INTLITERAL" + " " + yytext());}
+
+
+//array
+//{array}                                             {return("["+"\n"+"T_ID"+ "\n" + yytext()+"\n"+"]");}
+//identifiers
+{identifier}"["{DecIntegerLiteral}[^\"]                             {  return("T_ID "+yytext().substring(0,yytext().indexOf("[")) + '\n'+ "[" + '\n' + "T_INTLITERAL "  +yytext().substring(yytext().indexOf("[")+1,yytext().length()-1)
+ +'\n' + "]" );}
+
+{identifier}                                 {return ("T_ID"+ " " + yytext());}
+
+//double
+{DoubleNumber}                                    {return ("T_DOUBLELITERAL" + " " + yytext());}
+//string start
+
+
+\"                             { string.setLength(0); yybegin(STRING); }
+
+//white space
+{WhiteSpace}                                      {/* white space */}
+
+
+
+//operators
+{operator}                                        {return yytext();}
+
+
+
+{DecIntegerLiteral}                               {return ("T_INTLITERAL" + " " + yytext());}
+
+
+
+
+//{string}             { return("T_STRINGLITERAL " + yytext() +"\n");}
+
+}
+
+<STRING> {
+  \"                             { yybegin(YYINITIAL);
+                                    return("T_STRINGLITERAL " +'"'+string.toString())+'"' ;}
+  [^\n\r\"\\]+                   { string.append( yytext() ); }
+  \\t                            { string.append('\t'); }
+ // \\n                            { string.append('\n'); }
+
+  \\r                            { string.append('\r'); }
+  \\\"                           { string.append("\\\""); }
+  \\                             { string.append('\\');                  }
+}
+
+//<ARRAY> {
+//   \a                                {return("dssdsdsdsfs");}
+  //\]                             { yybegin(YYINITIAL);
+    //                                return("]");}
+//  \[                            { return("]");}
+//{DecIntegerLiteral}                               {return ("T_INTLITERAL" + " " + yytext());}
+//}
